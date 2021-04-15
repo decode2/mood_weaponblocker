@@ -103,6 +103,7 @@ int CacheBlockedWeaponsOnMapStart(){
 					blocked++;
 				}
 			}
+			break;
 		}
 	}
 	
