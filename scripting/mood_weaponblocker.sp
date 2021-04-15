@@ -4,7 +4,7 @@
 #define PLUGIN_NAME           "Weapons by map blocker"
 #define PLUGIN_AUTHOR         "Deco"
 #define PLUGIN_DESCRIPTION    "Bloquea armas prohibidas en mapas"
-#define PLUGIN_VERSION        "0.1"
+#define PLUGIN_VERSION        "0.2"
 #define PLUGIN_URL            "www.piu-games.com"
 
 #include <sourcemod>
@@ -54,14 +54,15 @@ public void OnMapStart(){
 	int blocked = CacheBlockedWeaponsOnMapStart();
 	if (blocked){
 		
-		char weapName[16];
-		
+		char sWeapons[24][16];
 		for (int i = 0; i < blocked; i++){
 			
-			arrayBlockedName.GetString(i, weapName, sizeof(weapName));
-			
-			PrintToChatAll(" \x09[MOOD]\x01 Arma bloqueada en este mapa: \x03%s\x01.", weapName);
+			arrayBlockedName.GetString(i, sWeapons[i], sizeof(sWeapons));
 		}
+		
+		char buffer[512];
+		ImplodeStrings(sWeapons, blocked, ", ", buffer, sizeof(buffer));
+		PrintToChatAll(" \x09[MOOD]\x01 Armas bloqueadas en este mapa: \x03%s\x01.", buffer);
 	}
 	else{
 		PrintToChatAll(" \x09[MOOD]\x01 No se han bloqueado armas en este mapa.");
