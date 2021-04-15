@@ -9,44 +9,14 @@
 
 #include <sourcemod>
 #include <sdktools>
+#include <map>
 
 #pragma semicolon 1
 
 #pragma newdecls required
 
-char sMapname[64];
-
-enum BlockedWeapons{
-	
-	WEAPON_G3SG1,
-	WEAPON_SCAR20,
-	WEAPON_AWP
-}
-
-char sMapsAwp[] = {
-	
-	// AWP
-	"$2000$_csgo",
-	"fy_pool_day_classic",
-	"fy_iceworld2k_t0",
-	"aim_redline"
-};
-
-char sMapsG3[] = {
-	
-	// G3SG1
-	"$2000$_csgo",
-	"fy_pool_day_classic",
-	"fy_iceworld2k_t0"
-};
-
-char sMapsScar[] = {
-	
-	// SCAR20
-	"$2000$_csgo",
-	"fy_pool_day_classic",
-	"fy_iceworld2k_t0"
-};
+ArrayList arrayBlocked;
+ArrayList arrayBlockedName;
 
 public Plugin myinfo = {
 	
@@ -59,16 +29,87 @@ public Plugin myinfo = {
 
 public void OnPluginStart(){
 	
+	// ATM we only support csgo
 	if(GetEngineVersion() != Engine_CSGO)
 		SetFailState("This plugin is for the game CSGO only.");
+	
+	// Cache blocked weapons to optimize searches
+	arrayBlocked = new ArrayList(10);
+	arrayBlockedName = new ArrayList(10);
+	
+	// Start maps module
+	MapsOnInit();
 }
 
 public void OnMapStart(){
 	
-	// Parse mapname
-	GetCurrentMap(sMapname, sizeof(sMapname));
+	// Forward event to module
+	MapsOnMapStart();
+	
+	// Cache destroy!
+	arrayBlocked.Clear();
+	arrayBlockedName.Clear();
+	
+	// Cache!
+	int blocked = CacheBlockedWeaponsOnMapStart();
+	if (blocked){
+		
+		char weapName[16];
+		
+		for (int i = 0; i < blocked; i++){
+			
+			arrayBlockedName.GetString(i, weapName, sizeof(weapName));
+			
+			PrintToChatAll(" \x09[MOOD]\x01 Arma bloqueada en este mapa: \x03%s\x01.", weapName);
+		}
+	}
+	else{
+		PrintToChatAll(" \x09[MOOD]\x01 No se han bloqueado armas en este mapa.");
+	}
 }
 
+public void OnPluginEnd(){
+	
+	// Forward event to module
+	MapsOnPluginEnd();
+	
+	// Delete this now
+	delete arrayBlocked;
+	delete arrayBlockedName;
+}
+
+int CacheBlockedWeaponsOnMapStart(){
+	
+	int blocked = 0;
+	
+	// Prepare loop
+	MapData map;
+	
+	for (int i = 0; i < maps.Length; i++){
+		
+		maps.GetArray(i, map);
+		
+		if (StrEqual(map.name, sMapName, false) ){
+			
+			for (int j = 0; j < sizeof(WeaponsEntName); j++){
+				
+				if (!map.blockedWeapons){
+					break;
+				}
+				
+				if (map.blockedWeapons & WeaponsBitFields[j]){
+					arrayBlocked.PushString(WeaponsEntName[j]);
+					arrayBlockedName.PushString(WeaponsName[j]);
+					blocked++;
+				}
+			}
+		}
+	}
+	
+	return blocked;
+}
+
+// OnEquip hook
 public Action WeaponsOnEquip(int client, int weapon){
 	
 	if(!IsClientInGame(client)){
@@ -82,6 +123,7 @@ public Action WeaponsOnEquip(int client, int weapon){
 	return Plugin_Continue;
 }
 
+// OnCanUse hook
 public Action WeaponsOnCanUse(int client, int weapon){
 	
 	if(!IsValidEdict(weapon) || !IsClientInGame(client)){
@@ -95,6 +137,7 @@ public Action WeaponsOnCanUse(int client, int weapon){
 	return Plugin_Continue;
 }
 
+// Simple func to detect if weapon is blocked in current map
 bool canUseWeaponInMap(int weapon){
 	
 	if (!IsValidEntity(weapon)){
@@ -105,40 +148,9 @@ bool canUseWeaponInMap(int weapon){
 	char weap[32];
 	GetEdictClassname(weapon, weap, sizeof(weap));
 	
-	bool canUse = true;
-	
-	if (StrEqual(weap, "weapon_awp")){
-		
-		for (int i = 0; i < sizeof(sMapsAwp); i++){
-			
-			if (StrEqual(sMapname, sMapsAwp[i])){
-				canUse = true;
-				break;
-			}
-		}
+	if (arrayBlocked.FindString(weap) != -1){
+		return false;
 	}
 	
-	if (StrEqual(weap, "weapon_g3sg1")){
-		
-		for (int i = 0; i < sizeof(sMapsG3); i++){
-			
-			if (StrEqual(sMapname, sMapsG3[i])){
-				canUse = true;
-				break;
-			}
-		}
-	}
-	
-	if (StrEqual(weap, "weapon_scar20")){
-		
-		for (int i = 0; i < sizeof(sMapsScar); i++){
-			
-			if (StrEqual(sMapname, sMapsScar[i])){
-				canUse = true;
-				break;
-			}
-		}
-	}
-	
-	return canUse;
+	return true;
 }
