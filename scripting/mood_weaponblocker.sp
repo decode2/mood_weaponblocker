@@ -9,6 +9,7 @@
 
 #include <sourcemod>
 #include <sdktools>
+#include <sdkhooks>
 #include <map>
 
 #pragma semicolon 1
@@ -39,6 +40,18 @@ public void OnPluginStart(){
 	
 	// Start maps module
 	MapsOnInit();
+}
+
+public void OnClientPutInServer(int client){
+	
+	SDKHook(client, SDKHook_WeaponCanUse, 	WeaponsOnCanUse);
+	SDKHook(client, SDKHook_WeaponEquip, 	WeaponsOnEquip);
+}
+
+public void OnClientDisconnect(int client){
+	
+	SDKUnhook(client, SDKHook_WeaponCanUse, WeaponsOnCanUse);
+	SDKUnhook(client, SDKHook_WeaponEquip, 	WeaponsOnEquip);
 }
 
 public void OnMapStart(){
@@ -115,7 +128,7 @@ int CacheBlockedWeaponsOnMapStart(){
 public Action WeaponsOnEquip(int client, int weapon){
 	
 	if(!IsClientInGame(client)){
-		return Plugin_Handled;
+		return Plugin_Continue;
 	}
 	
 	if (!canUseWeaponInMap(weapon)){
@@ -129,7 +142,7 @@ public Action WeaponsOnEquip(int client, int weapon){
 public Action WeaponsOnCanUse(int client, int weapon){
 	
 	if(!IsValidEdict(weapon) || !IsClientInGame(client)){
-		return Plugin_Handled;
+		return Plugin_Continue;
 	}
 	
 	if (!canUseWeaponInMap(weapon)){
@@ -139,10 +152,23 @@ public Action WeaponsOnCanUse(int client, int weapon){
 	return Plugin_Continue;
 }
 
+// Block buy command
+public Action CS_OnBuyCommand(int client, const char[] szWeapon){
+	
+	if(!IsClientInGame(client) || !IsPlayerAlive(client) || GetEntProp(client, Prop_Send, "m_bInBuyZone") == 0)
+		return Plugin_Continue;
+	
+	if (!canUseWeaponFindByStr(szWeapon)){
+		return Plugin_Handled;
+	}
+	
+	return Plugin_Continue;
+}
+
 // Simple func to detect if weapon is blocked in current map
 bool canUseWeaponInMap(int weapon){
 	
-	if (!IsValidEntity(weapon)){
+	if (!IsValidEdict(weapon)){
 		LogError("ERROR! Weapon id %d is not valid", weapon);
 		return false;
 	}
@@ -151,6 +177,15 @@ bool canUseWeaponInMap(int weapon){
 	GetEdictClassname(weapon, weap, sizeof(weap));
 	
 	if (arrayBlocked.FindString(weap) != -1){
+		return false;
+	}
+	
+	return canUseWeaponFindByStr(weap);
+}
+
+bool canUseWeaponFindByStr(const char[] szWeapon){
+	
+	if (arrayBlocked.FindString(szWeapon) != -1){
 		return false;
 	}
 	
