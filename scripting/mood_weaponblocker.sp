@@ -4,7 +4,7 @@
 #define PLUGIN_NAME           "Weapons by map blocker"
 #define PLUGIN_AUTHOR         "Deco"
 #define PLUGIN_DESCRIPTION    "Bloquea armas prohibidas en mapas"
-#define PLUGIN_VERSION        "0.2"
+#define PLUGIN_VERSION        "0.3"
 #define PLUGIN_URL            "www.piu-games.com"
 
 #include <sourcemod>
@@ -44,13 +44,13 @@ public void OnPluginStart(){
 
 public void OnClientPutInServer(int client){
 	
-	SDKHook(client, SDKHook_WeaponCanUse, 	WeaponsOnCanUse);
+	//SDKHook(client, SDKHook_WeaponCanUse, 	WeaponsOnCanUse);
 	SDKHook(client, SDKHook_WeaponEquip, 	WeaponsOnEquip);
 }
 
 public void OnClientDisconnect(int client){
 	
-	SDKUnhook(client, SDKHook_WeaponCanUse, WeaponsOnCanUse);
+	//SDKUnhook(client, SDKHook_WeaponCanUse, WeaponsOnCanUse);
 	SDKUnhook(client, SDKHook_WeaponEquip, 	WeaponsOnEquip);
 }
 
@@ -112,6 +112,7 @@ int CacheBlockedWeaponsOnMapStart(){
 				}
 				
 				if (map.blockedWeapons & WeaponsBitFields[j]){
+					
 					arrayBlocked.PushString(WeaponsEntName[j]);
 					arrayBlockedName.PushString(WeaponsName[j]);
 					blocked++;
@@ -127,11 +128,12 @@ int CacheBlockedWeaponsOnMapStart(){
 // OnEquip hook
 public Action WeaponsOnEquip(int client, int weapon){
 	
-	if(!IsClientInGame(client)){
+	/*if(!IsClientInGame(client)){
 		return Plugin_Continue;
-	}
+	}*/
 	
 	if (!canUseWeaponInMap(weapon)){
+		AcceptEntityInput(weapon, "kill");
 		return Plugin_Handled;
 	}
 	
@@ -158,7 +160,16 @@ public Action CS_OnBuyCommand(int client, const char[] szWeapon){
 	if(!IsClientInGame(client) || !IsPlayerAlive(client) || GetEntProp(client, Prop_Send, "m_bInBuyZone") == 0)
 		return Plugin_Continue;
 	
-	if (!canUseWeaponFindByStr(szWeapon)){
+	char weap[32];
+	strcopy(weap, sizeof(weap), szWeapon);
+	
+	LowerCaseString(weap);
+	StripWeaponPrefix(weap, sizeof(weap));
+	
+	if (!canUseWeaponFindByStr(weap)){
+		
+		upperCaseString(weap);
+		PrintToChat(client, " \x09[MOOD]\x01 Arma bloqueada en este mapa! (\x04%s\x01)", weap);
 		return Plugin_Handled;
 	}
 	
@@ -170,15 +181,14 @@ bool canUseWeaponInMap(int weapon){
 	
 	if (!IsValidEdict(weapon)){
 		LogError("ERROR! Weapon id %d is not valid", weapon);
-		return false;
+		return true;
 	}
 	
 	char weap[32];
 	GetEdictClassname(weapon, weap, sizeof(weap));
 	
-	if (arrayBlocked.FindString(weap) != -1){
-		return false;
-	}
+	LowerCaseString(weap);
+	StripWeaponPrefix(weap, sizeof(weap));
 	
 	return canUseWeaponFindByStr(weap);
 }
@@ -190,4 +200,37 @@ bool canUseWeaponFindByStr(const char[] szWeapon){
 	}
 	
 	return true;
+}
+
+void StripWeaponPrefix(char[] weapon, int size){
+	
+	ReplaceString(weapon, size, "weapon_", "", false);
+}
+
+// Lower case a string
+void LowerCaseString(char[] s){
+	for(int i = 0;; ++i){
+		// Break early at zero-termination
+		if(s[i] == '\0'){
+			break;
+		}
+		
+		if(IsCharUpper(s[i])){
+			s[i] = CharToLower(s[i]);
+		}
+	}
+}
+
+// Lower case a string
+void upperCaseString(char[] s){
+	for(int i = 0;; ++i){
+		// Break early at zero-termination
+		if(s[i] == '\0'){
+			break;
+		}
+		
+		if(IsCharLower(s[i])){
+			s[i] = CharToUpper(s[i]);
+		}
+	}
 }
